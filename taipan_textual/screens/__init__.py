@@ -11,7 +11,7 @@ from .wheedle_screen import WheedleScreen
 from .retire_screen import RetireScreen
 from .battle_screen import BattleScreen
 from .setup_screen import SetupScreen
-
+from .quit_screen import QuitScreen
 __all__ = [
     "PortScreen",
     "BuyScreen",
@@ -21,5 +21,6 @@ __all__ = [
     "WheedleScreen",
     "RetireScreen",
     "BattleScreen",
-    "SetupScreen"
+    "SetupScreen",
+    "QuitScreen"
 ] 

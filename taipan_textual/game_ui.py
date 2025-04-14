@@ -20,7 +20,7 @@ from .screens import (
     TransferScreen,
     WheedleScreen,
     RetireScreen,
-    PortScreen,
+    QuitScreen,
     SetupScreen
 )
 
@@ -103,7 +103,7 @@ class TaipanApp(App):
         elif action == "transfer":
             self.app.push_screen(TransferScreen(self.game_state))
         elif action == "quit":
-            self.app.exit()
+            self.app.push_screen(QuitScreen(self.game_state))
         elif action == "wheedle" and self.game_state.port == 1:
             self.app.push_screen(WheedleScreen(self.game_state))
         elif action == "retire" and self.game_state.port == 1:

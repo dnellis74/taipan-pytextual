@@ -67,6 +67,7 @@ class GameState:
     li_yuen_relation: int = 0  # li in C code
     wu_warned: bool = False    # wu_warn in C code
     wu_bailouts: int = 0       # wu_bailout in C code
+    wu_warn: int = 0           # Track if Elder Brother Wu has warned about debt
     
     # Current prices
     price: List[int] = field(default_factory=lambda: [0] * 4)  # price in C code
