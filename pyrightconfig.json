@@ -1,0 +1,10 @@
+{
+    "venvPath": ".",
+    "venv": ".venv",
+    "extraPaths": [
+        "/Users/davidnellis/Library/Caches/pypoetry/virtualenvs/taipan-textual-kmJDQqlO-py3.9/lib/python3.9/site-packages"
+    ],
+    "reportMissingImports": false,
+    "pythonVersion": "3.9",
+    "typeCheckingMode": "basic"
+} 
