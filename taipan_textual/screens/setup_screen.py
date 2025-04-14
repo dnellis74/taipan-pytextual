@@ -65,7 +65,6 @@ class SetupScreen(Screen):
                     self.game_state.li_yuen_relation = 1
                     self.game_state.battle_probability = 7
                 
-                self.notify("Game setup complete!", severity="information")
                 # Pop the setup screen and push the port screen
                 self.app.pop_screen()
                 self.app.push_screen(PortScreen(self.game_state))
