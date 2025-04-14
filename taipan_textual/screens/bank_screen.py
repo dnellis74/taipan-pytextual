@@ -64,7 +64,7 @@ Bank: ${self.game_state.format_money(self.game_state.bank)}
                     else:
                         amount = int(self.amount_input)
                     
-                    if amount <= 0:
+                    if amount < 0:
                         self.notify("Amount must be positive", severity="error")
                         return
                     
@@ -87,7 +87,7 @@ Bank: ${self.game_state.format_money(self.game_state.bank)}
                     else:
                         amount = int(self.amount_input)
                     
-                    if amount <= 0:
+                    if amount < 0:
                         self.notify("Amount must be positive", severity="error")
                         return
                     

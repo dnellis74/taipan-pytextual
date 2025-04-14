@@ -93,10 +93,6 @@ class QuitScreen(Screen):
         
         # Update location
         self.game_state.port = port
-        
-        # Check for random events
-        self._check_random_events()
-        
         self.notify(f"Arriving at {LOCATIONS[port]}...", severity="information")
         
         # Update prices
@@ -105,98 +101,7 @@ class QuitScreen(Screen):
         # Return to port screen
         self.app.pop_screen()
     
-    def _check_random_events(self) -> None:
-        """Check for random events that can occur when arriving at a port."""
-        # Li Yuen extortion (only in Hong Kong, if not already paid, and have cash)
-        if (self.game_state.port == 1 and 
-            self.game_state.li_yuen_relation == 0 and 
-            self.game_state.cash > 0):
-            self._li_yuen_extortion()
-        
-        # TODO: Implement mchenry (ship repair in Hong Kong)
-        if self.game_state.port == 1 and self.game_state.damage > 0:
-            pass  # TODO: Implement mchenry
-        
-        # TODO: Implement Elder Brother Wu warning
-        if (self.game_state.port == 1 and 
-            self.game_state.debt >= 10000 and 
-            self.game_state.wu_warn == 0):
-            pass  # TODO: Implement Wu warning
-        
-        # TODO: Implement Elder Brother Wu visit
-        if self.game_state.port == 1:
-            pass  # TODO: Implement Elder Brother Wu
-        
-        # TODO: Implement new ship/gun offers
-        if random.randint(1, 4) == 1:
-            pass  # TODO: Implement new ship/gun offers
-        
-        # TODO: Implement opium seizure
-        if (self.game_state.port != 1 and 
-            random.randint(1, 18) == 1 and 
-            self.game_state.hold_[0] > 0):
-            pass  # TODO: Implement opium seizure
-        
-        # TODO: Implement warehouse theft
-        if (random.randint(1, 50) == 1 and 
-            sum(self.game_state.warehouse) > 0):
-            pass  # TODO: Implement warehouse theft
-        
-        # TODO: Implement Li Yuen relation decay
-        if random.randint(1, 20) == 1:
-            pass  # TODO: Implement Li Yuen relation decay
-        
-        # TODO: Implement Li Yuen summons
-        if (self.game_state.port != 1 and 
-            self.game_state.li_yuen_relation == 0 and 
-            random.randint(1, 4) != 1):
-            pass  # TODO: Implement Li Yuen summons
-        
-        # TODO: Implement good prices
-        if random.randint(1, 9) == 1:
-            pass  # TODO: Implement good prices
-        
-        # TODO: Implement robbery
-        if (self.game_state.cash > 25000 and 
-            random.randint(1, 20) == 1):
-            pass  # TODO: Implement robbery
-    
-    def _li_yuen_extortion(self) -> None:
-        """Handle Li Yuen's extortion attempt."""
-        time = ((self.game_state.year - 1860) * 12) + self.game_state.month
-        i = 1.8
-        j = 0
-        
-        if time > 12:
-            j = random.randint(1000 * time, 2000 * time)
-            i = 1
-        
-        amount = int((self.game_state.cash / i) * random.random() + j)
-        
-        self.notify(f"Comprador's Report\n\nLi Yuen asks ${self.game_state.format_money(amount)} in donation\nto the temple of Tin Hau, the Sea\nGoddess.  Will you pay? (Y/N)", severity="warning")
-        
-        # Store the amount for the key handler
-        self._li_yuen_amount = amount
-    
     def on_key(self, event: events.Key) -> None:
         """Handle key press events."""
         if event.key == "escape":
-            self.app.pop_screen()
-        elif hasattr(self, '_li_yuen_amount'):
-            # Handle Li Yuen extortion choice
-            if event.key.lower() == 'y':
-                if self._li_yuen_amount <= self.game_state.cash:
-                    self.game_state.cash -= self._li_yuen_amount
-                    self.game_state.li_yuen_relation = 1
-                    self.notify("Thank you, Taipan.", severity="information")
-                else:
-                    # TODO: Implement Elder Brother Wu loan option
-                    self.game_state.cash = 0
-                    self.notify("You don't have enough cash!", severity="error")
-            elif event.key.lower() == 'n':
-                self.notify("Very well, Taipan.", severity="information")
-            else:
-                return  # Ignore other keys
-            
-            # Clear the stored amount
-            del self._li_yuen_amount 
+            self.app.pop_screen() 
