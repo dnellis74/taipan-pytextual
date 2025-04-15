@@ -63,7 +63,8 @@ class SetupScreen(Screen):
                     self.game_state.hold = 0  # Start with empty hold
                     self.game_state.guns = 5
                     self.game_state.li_yuen_relation = 1
-                    self.game_state.battle_probability = 7
+                    #self.game_state.battle_probability = 7
+                    self.game_state.battle_probability = 1
                 
                 # Pop the setup screen and push the port screen
                 self.app.pop_screen()
