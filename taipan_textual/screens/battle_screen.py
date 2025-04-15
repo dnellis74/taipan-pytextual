@@ -15,6 +15,8 @@ from rich.panel import Panel
 from rich.text import Text
 from textual.reactive import reactive
 from textual.worker import Worker
+from textual.geometry import Region
+from rich.style import Style
 
 
 from ..game_state import GameState, BATTLE_NOT_FINISHED, BATTLE_WON, BATTLE_INTERRUPTED, BATTLE_FLED, BATTLE_LOST
@@ -24,6 +26,144 @@ GENERIC = 1
 LI_YUEN = 2
 
 BattleResult = Literal[0, 1, 2, 3, 4]
+
+class ShipDisplay(Static):
+    """Widget for displaying ships in battle."""
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.ships = [0] * 10  # Health of ships in each position
+        self.explosions = [False] * 10  # Whether each position is exploding
+        self.sinking = [False] * 10  # Whether each position is sinking
+        self.sink_frames = [0] * 10  # Current frame of sinking animation
+        self._lines = []  # Store the current display lines
+        self.num_ships = 0  # Number of ships currently in battle
+        self.num_on_screen = 0  # Number of ships currently displayed
+        self.enemy_health = 0  # Enemy health for backfilling ships
+        
+    def initialize_ships(self, num_ships: int, enemy_health: int) -> None:
+        """Initialize ships for battle, matching the C code logic."""
+        self.num_ships = num_ships
+        self.num_on_screen = 0
+        self.ships = [0] * 10
+        self.enemy_health = enemy_health
+        
+        # Fill the first 5 positions with ships
+        for i in range(min(5, num_ships)):
+            self.ships[i] = int((enemy_health * random.random()) + 20)
+            self.num_on_screen += 1
+            
+        # If more than 5 ships, fill the second row
+        if num_ships > 5:
+            for i in range(5, min(10, num_ships)):
+                self.ships[i] = int((enemy_health * random.random()) + 20)
+                self.num_on_screen += 1
+                
+        self.refresh()
+        
+    def backfill_ships(self) -> None:
+        """Backfill empty positions with new ships if there are still ships remaining."""
+        if self.num_ships > self.num_on_screen:
+            # Find empty positions and fill them
+            for i in range(10):
+                if self.ships[i] == 0 and self.num_ships > self.num_on_screen:
+                    self.ships[i] = int((self.enemy_health * random.random()) + 20)
+                    self.num_on_screen += 1
+            self.refresh()
+        
+    def draw_ship(self, x: int, y: int) -> None:
+        """Draw a ship at the given position."""
+        self._write_at(x, y, "-|-_|_  ")
+        self._write_at(x, y + 1, "-|-_|_  ")
+        self._write_at(x, y + 2, "_|__|__/")
+        self._write_at(x, y + 3, "\\_____/ ")
+        
+    def draw_explosion(self, x: int, y: int) -> None:
+        """Draw an explosion at the given position."""
+        self._write_at(x, y, "********")
+        self._write_at(x, y + 1, "********")
+        self._write_at(x, y + 2, "********")
+        self._write_at(x, y + 3, "********")
+        
+    def clear_position(self, x: int, y: int) -> None:
+        """Clear the given position."""
+        self._write_at(x, y, "        ")
+        self._write_at(x, y + 1, "        ")
+        self._write_at(x, y + 2, "        ")
+        self._write_at(x, y + 3, "        ")
+        
+    def _write_at(self, x: int, y: int, text: str) -> None:
+        """Write text at the given position."""
+        # Ensure we have enough lines
+        while len(self._lines) <= y + 1:
+            self._lines.append("")
+            
+        # Ensure the line is long enough
+        while len(self._lines[y]) < x + len(text):
+            self._lines[y] += " "
+            
+        # Insert the text
+        self._lines[y] = self._lines[y][:x] + text + self._lines[y][x + len(text):]
+        
+    def render(self) -> str:
+        """Render the ship display."""
+        # Clear the display
+        self._lines = []
+        
+        # Draw ships in their current positions
+        for i in range(10):
+            if self.ships[i] > 0:
+                x = 10 + (i % 5) * 10
+                y = 6 if i < 5 else 12
+                
+                if self.explosions[i]:
+                    self.draw_explosion(x, y)
+                elif self.sinking[i]:
+                    # Draw sinking animation frame
+                    if self.sink_frames[i] == 0:
+                        self.clear_position(x, y)
+                        self.draw_ship(x, y + 1)
+                    elif self.sink_frames[i] == 1:
+                        self.clear_position(x, y + 1)
+                        self.draw_ship(x, y + 2)
+                    elif self.sink_frames[i] == 2:
+                        self.clear_position(x, y + 2)
+                        self.draw_ship(x, y + 3)
+                    else:
+                        self.clear_position(x, y + 3)
+                else:
+                    self.draw_ship(x, y)
+                    
+        return "\n".join(self._lines)
+        
+    async def animate_sinking(self, index: int) -> None:
+        """Animate a ship sinking."""
+        self.sinking[index] = True
+        self.sink_frames[index] = 0
+        
+        for frame in range(4):
+            self.sink_frames[index] = frame
+            self.refresh()
+            await asyncio.sleep(0.5)
+            
+        self.sinking[index] = False
+        self.sink_frames[index] = 0
+        self.ships[index] = 0
+        self.num_on_screen -= 1
+        self.num_ships -= 1
+        
+        # Backfill if there are still ships remaining
+        self.backfill_ships()
+        
+        self.refresh()
+        
+    async def animate_explosion(self, index: int) -> None:
+        """Animate an explosion."""
+        self.explosions[index] = True
+        self.refresh()
+        await asyncio.sleep(0.1)
+        self.explosions[index] = False
+        self.refresh()
 
 class BattleScreen(Screen):
     """Screen for handling sea battles."""
@@ -109,13 +249,13 @@ class BattleScreen(Screen):
         self.battle_status_widget = Static(self.battle_status, id="battle-status")
         self.battle_orders_widget = Static(self.battle_orders, id="battle-orders")
         self.battle_message_widget = Static(self.battle_message, id="battle-message")
-        self.battle_ships_widget = Static(self.battle_ships, id="battle-ships")
+        self.ship_display = ShipDisplay(id="battle-ships")
         
         yield Container(
             self.battle_status_widget,
             self.battle_orders_widget,
             self.battle_message_widget,
-            self.battle_ships_widget,
+            self.ship_display,
             id="battle-container"
         )
     
@@ -147,7 +287,8 @@ class BattleScreen(Screen):
     def watch_battle_ships(self, ships: str) -> None:
         """Called when battle_ships changes."""
         if self.is_mounted:
-            self.battle_ships_widget.update(ships)
+            self.ship_display.ships = [int(x) if x else 0 for x in ships.split(',')]
+            self.ship_display.refresh()
     
     def _update_battle_status(self) -> None:
         """Update the battle status display."""
@@ -169,10 +310,6 @@ class BattleScreen(Screen):
         """Update the battle message display."""
         self.battle_message = message
         await asyncio.sleep(delay)
-    def _update_ships_display(self) -> None:
-        """Update the ships display."""
-        # TODO: Implement visual ship display
-        pass
     
     def _update_battle_orders(self, message: str) -> None:
         """Update the battle orders display."""
@@ -200,12 +337,16 @@ class BattleScreen(Screen):
                     if self.ships_on_screen[j] == 0:
                         self.ships_on_screen[j] = int((self.game_state.enemy_health * random.random()) + 20)
                         self.num_on_screen += 1
-                        self._update_ships_display()
+                        self.ship_display.ships[j] = self.ships_on_screen[j]
+                        self.ship_display.refresh()
             
             # Target a ship
             targeted = random.randint(0, 9)
             while self.ships_on_screen[targeted] == 0:
                 targeted = random.randint(0, 9)
+            
+            # Show explosion
+            await self.ship_display.animate_explosion(targeted)
             
             # Apply damage
             self.ships_on_screen[targeted] -= random.randint(10, 40)
@@ -215,10 +356,11 @@ class BattleScreen(Screen):
                 self.num_ships -= 1
                 sk += 1
                 self.ships_on_screen[targeted] = 0
+                await self.ship_display.animate_sinking(targeted)
             
             # Update display
             self._update_battle_status()
-            self._update_ships_display()
+            self.ship_display.refresh()
             
             if i < self.game_state.guns:
                 await self._update_battle_message(f"({self.game_state.guns - i} shots remaining.)", 0.5)
@@ -268,7 +410,7 @@ class BattleScreen(Screen):
                 self._update_battle_orders("Taipan, what shall we do??    (f=Fight, r=Run, t=Throw cargo)")
     
     @work
-    def _handle_throw_cargo(self) -> None:
+    async def _handle_throw_cargo(self) -> None:
         """Handle throw cargo orders."""
         # TODO: Implement cargo throwing
         self._update_battle_orders("What shall I throw overboard, Taipan? (o=Opium, s=Silk, a=Arms, g=General, *=All)")
@@ -278,9 +420,7 @@ class BattleScreen(Screen):
     async def _handle_enemy_attack(self) -> BattleResult:
         """Handle enemy attack."""
         await self._update_battle_message("They're firing on us, Taipan!", self.short_pause)
-        
         # TODO: Implement visual attack effect
-        
         await self._update_battle_message("We've been hit, Taipan!!", self.short_pause)
         
         # Calculate damage
@@ -318,7 +458,7 @@ class BattleScreen(Screen):
             if self.orders == 1:
                 await self._update_battle_message("We got 'em all, Taipan!", self.short_pause)
                 await self._update_battle_message("We captured some booty.\n",self.short_pause);
-                await self._update_battle_message("It's worth %s!", self.long_pause);
+                await self._update_battle_message(f"It's worth {self.booty}!", self.long_pause);
                 self.game_state.cash += self.booty
                 self.app.switch_screen(CompleteTravelScreen(self.game_state))
                 return
