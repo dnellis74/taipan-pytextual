@@ -90,9 +90,7 @@ class QuitScreen(Screen):
             num_ships = random.randint(1, (self.game_state.capacity // 10) + self.game_state.guns)
             if num_ships > 9999:
                 num_ships = 9999
-            
-            self.notify(f"{num_ships} hostile ships approaching, Taipan!", severity="warning")
-            
+                        
             # Start battle
             battle_screen = BattleScreen(self.game_state, num_ships=num_ships)
             self.app.push_screen(battle_screen)
