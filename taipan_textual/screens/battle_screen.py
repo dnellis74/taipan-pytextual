@@ -3,6 +3,7 @@ Battle screen for sea battles in Taipan.
 """
 
 from typing import Union, Optional, cast, Literal
+from taipan_textual.screens.complete_travel_screen import CompleteTravelScreen
 from textual.app import ComposeResult
 from textual.screen import Screen
 from textual.widgets import Static, Input
@@ -99,6 +100,9 @@ class BattleScreen(Screen):
         
         # Calculate booty
         self.booty = (self.time // 4 * 1000 * num_ships) + random.randint(0, 999) + 250
+        
+        self.long_pause = 1.5
+        self.short_pause = 0.5
     
     def compose(self) -> ComposeResult:
         """Create child widgets for the screen."""
@@ -120,6 +124,10 @@ class BattleScreen(Screen):
         self.battle_status = f"{self.num_ships} hostile ships approaching, Taipan!"
         self.battle_orders = "Taipan, what shall we do??    (f=Fight, r=Run, t=Throw cargo)"
         self._update_battle_status()
+        
+        # Explicitly update the widgets to reflect the initial values
+        self.battle_status_widget.update(self.battle_status)
+        self.battle_orders_widget.update(self.battle_orders)
     
     def watch_battle_status(self, status: str) -> None:
         """Called when battle_status changes."""
@@ -157,11 +165,10 @@ class BattleScreen(Screen):
             f"Hold: {self.game_state.hold}/{self.game_state.capacity}"
         )
     
-    async def _update_battle_message(self, message: str, delay: float = 3) -> None:
+    async def _update_battle_message(self, message: str, delay: float) -> None:
         """Update the battle message display."""
         self.battle_message = message
         await asyncio.sleep(delay)
-    
     def _update_ships_display(self) -> None:
         """Update the ships display."""
         # TODO: Implement visual ship display
@@ -175,12 +182,12 @@ class BattleScreen(Screen):
     async def _handle_fight(self) -> None:
         """Handle fight orders."""
         if self.game_state.guns == 0:
-            await self._update_battle_message("We have no guns, Taipan!!")
+            await self._update_battle_message("We have no guns, Taipan!!", self.short_pause)
             return
         
-        await self._update_battle_message("Aye, we'll fight 'em, Taipan.")
+        await self._update_battle_message("Aye, we'll fight 'em, Taipan.", self.short_pause)
         
-        await self._update_battle_message("We're firing on 'em, Taipan!", 1)
+        await self._update_battle_message("We're firing on 'em, Taipan!", self.short_pause)
         
         sk = 0  # Ships sunk
         for i in range(1, self.game_state.guns + 1):
@@ -217,9 +224,9 @@ class BattleScreen(Screen):
                 await self._update_battle_message(f"({self.game_state.guns - i} shots remaining.)", 0.5)
         
         if sk > 0:
-            await self._update_battle_message(f"Sunk {sk} of the buggers, Taipan!")
+            await self._update_battle_message(f"Sunk {sk} of the buggers, Taipan!", self.short_pause)
         else:
-            await self._update_battle_message("Hit 'em, but didn't sink 'em, Taipan!")
+            await self._update_battle_message("Hit 'em, but didn't sink 'em, Taipan!", self.short_pause)
         
         # Check if some ships run away
         if (random.randint(1, self.original_ships) > (self.num_ships * 0.6 / self.battle_type) and 
@@ -231,34 +238,36 @@ class BattleScreen(Screen):
             self.num_ships -= ran
             
             self._update_battle_status()
-            await self._update_battle_message(f"{ran} ran away, Taipan!", 3)
+            await self._update_battle_message(f"{ran} ran away, Taipan!", self.short_pause)
             
         await self.after_action()
     
+    @work
     async def _handle_run(self) -> None:
         """Handle run orders."""
-        await self._update_battle_message("Aye, we'll run, Taipan.", 3)
+        await self._update_battle_message("Aye, we'll run, Taipan.", self.short_pause)
         
         self.ok += self.ik
         self.ik += 1
         
         if random.randint(1, self.ok) > random.randint(1, self.num_ships):
-            await self._update_battle_message("We got away from 'em, Taipan!", 3)
+            await self._update_battle_message("We got away from 'em, Taipan!", self.short_pause)
             self.num_ships = 0
         else:
-            await self._update_battle_message("Couldn't lose 'em.", 3)
+            await self._update_battle_message("Couldn't lose 'em.", self.short_pause)
             
             if self.num_ships > 2 and random.randint(1, 5) == 1:
                 lost = random.randint(1, self.num_ships // 2)
                 self.num_ships -= lost
                 
                 self._update_battle_status()
-                await self._update_battle_message(f"But we escaped from {lost} of 'em!", 3)
+                await self._update_battle_message(f"But we escaped from {lost} of 'em!", self.short_pause)
                 
                 # Get new orders
                 self.orders = 0
                 self._update_battle_orders("Taipan, what shall we do??    (f=Fight, r=Run, t=Throw cargo)")
     
+    @work
     def _handle_throw_cargo(self) -> None:
         """Handle throw cargo orders."""
         # TODO: Implement cargo throwing
@@ -268,11 +277,11 @@ class BattleScreen(Screen):
     
     async def _handle_enemy_attack(self) -> BattleResult:
         """Handle enemy attack."""
-        await self._update_battle_message("They're firing on us, Taipan!", 3)
+        await self._update_battle_message("They're firing on us, Taipan!", self.short_pause)
         
         # TODO: Implement visual attack effect
         
-        await self._update_battle_message("We've been hit, Taipan!!", 3)
+        await self._update_battle_message("We've been hit, Taipan!!", self.short_pause)
         
         # Calculate damage
         i = min(15, self.num_ships)
@@ -282,13 +291,13 @@ class BattleScreen(Screen):
             i = 1
             self.game_state.guns -= 1
             self.game_state.hold += 10
-            await self._update_battle_message("The buggers hit a gun, Taipan!!")
+            await self._update_battle_message("The buggers hit a gun, Taipan!!", self.short_pause)
         
         damage = int((self.game_state.enemy_damage * i * self.battle_type * random.random()) + (i / 2))
         self.game_state.damage += damage
         
         if self.battle_type == GENERIC and random.randint(1, 20) == 1:
-            self.app.pop_screen()
+            self.app.switch_screen(CompleteTravelScreen(self.game_state))
             return BATTLE_INTERRUPTED
         
         self._update_battle_status()
@@ -301,24 +310,27 @@ class BattleScreen(Screen):
             if result != BATTLE_NOT_FINISHED:
                 if result == BATTLE_LOST:
                     self.notify("Your ship has been lost!", severity="error")
-                self.app.pop_screen()
+                self.app.switch_screen(CompleteTravelScreen(self.game_state))
                 return
         
         # Check if battle is won
         if self.num_ships == 0:
             if self.orders == 1:
-                await self._update_battle_message("We got 'em all, Taipan!", 3)
-                self.app.pop_screen()
+                await self._update_battle_message("We got 'em all, Taipan!", self.short_pause)
+                await self._update_battle_message("We captured some booty.\n",self.short_pause);
+                await self._update_battle_message("It's worth %s!", self.long_pause);
+                self.game_state.cash += self.booty
+                self.app.switch_screen(CompleteTravelScreen(self.game_state))
                 return
             else:
-                self.app.pop_screen()
+                self.app.switch_screen(CompleteTravelScreen(self.game_state))
                 return
         
         # Check if ship is lost
         status = 100 - ((self.game_state.damage / self.game_state.capacity) * 100)
         if status <= 0:
             self.notify("Your ship has been lost!", severity="error")
-            self.app.pop_screen()
+            self.app.switch_screen(CompleteTravelScreen(self.game_state))
             return
         
         # Reset orders for next turn
@@ -335,7 +347,7 @@ class BattleScreen(Screen):
             elif event.key.lower() == 'r':
                 self.orders = 2
                 self._update_battle_orders("Fleeing!")
-                await self._handle_run()
+                self._handle_run()
             elif event.key.lower() == 't':
                 self.orders = 3
                 self._update_battle_orders("Throwing cargo!")

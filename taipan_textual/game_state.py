@@ -50,6 +50,9 @@ class GameState:
     enemy_damage: float = 0.5   # ed in C code
     battle_probability: int = 0  # bp in C code
     
+    #preserve travel state across battles
+    destination_port: int = 0
+    
     # Cargo and ship stats
     warehouse: List[int] = field(default_factory=lambda: [0] * 4)  # hkw_ in C code
     hold_: List[int] = field(default_factory=lambda: [0] * 4)      # hold_ in C code

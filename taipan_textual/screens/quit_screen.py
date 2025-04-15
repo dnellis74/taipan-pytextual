@@ -2,14 +2,13 @@
 Quit screen for Taipan.
 """
 
-from typing import Union, Optional, cast
+from typing import Union
 from textual.app import ComposeResult
 from textual.screen import Screen
-from textual.widgets import Static, Input
+from textual.widgets import Static
 from textual.containers import Container
 from textual import events
 import random
-import time
 
 from ..game_state import GameState, BATTLE_NOT_FINISHED, BATTLE_WON, BATTLE_INTERRUPTED, BATTLE_FLED, BATTLE_LOST
 from .battle_screen import BattleScreen, LI_YUEN
@@ -84,6 +83,7 @@ class QuitScreen(Screen):
     
     def _handle_travel(self, port: int) -> None:
         """Handle travel to a new port."""
+        self.game_state.destination_port = port
         # Check for battle
         if self.game_state.battle_probability > 0 and random.randint(0, self.game_state.battle_probability - 1) == 0:
             # Calculate number of ships
@@ -93,10 +93,10 @@ class QuitScreen(Screen):
                         
             # Start battle
             battle_screen = BattleScreen(self.game_state, num_ships=num_ships)
-            self.app.push_screen(battle_screen)
+            self.app.switch_screen(battle_screen)
         else:
             # If no battle, just complete the travel
-            self.app.push_screen(CompleteTravelScreen(self.game_state, port))
+            self.app.switch_screen(CompleteTravelScreen(self.game_state))
     
     def on_key(self, event: events.Key) -> None:
         """Handle key press events."""
@@ -107,4 +107,4 @@ class QuitScreen(Screen):
             if port != self.game_state.port:
                 self._handle_travel(port)
             else:
-                self.notify("You are already at that port!", severity="warning") 
+                self.notify("You are already at that port!", severity="warning")
